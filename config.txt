@@ -1,0 +1,20 @@
+# ---- Simulation Settings ----
+initialQueueMultiplier=100
+minTaskTime=2
+maxTaskTime=15
+cooldownCycles=25
+newRequestChancePercent=30
+
+# ---- Autoscaling thresholds ----
+lowerQueuePerServer=50
+upperQueuePerServer=80
+
+# ---- Firewall blocked ranges (inclusive) ----
+# Format: A.B.C.D-E.F.G.H
+blockRange=10.0.0.0-10.255.255.255
+blockRange=192.168.1.0-192.168.1.255
+
+# ---- Logging ----
+logFile=loadbalancer.log
+snapshotEvery=50
+useColorConsole=1
