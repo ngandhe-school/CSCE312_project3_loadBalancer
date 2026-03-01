@@ -9,9 +9,6 @@
 #include <string>
 #include <vector>
 
-/**
- * @brief Manages a queue of requests and a dynamic pool of web servers.
- */
 class LoadBalancer {
 public:
     struct Config {
@@ -36,7 +33,6 @@ public:
     void run();
 
 private:
-    // simulation helpers
     void generateInitialQueue();
     void maybeGenerateNewRequest();
     Request createRandomRequest();
@@ -46,7 +42,6 @@ private:
     void maybeScale();
     void logSnapshot();
 
-    // config & state
     int totalSimulationCycles;
     long long currentCycle;
 
@@ -61,7 +56,6 @@ private:
     Firewall firewall;
     Logger logger;
 
-    // stats
     size_t startingQueueSize;
     long long totalGenerated;
     long long totalRejected;
@@ -70,7 +64,6 @@ private:
     long long scaleDowns;
     size_t maxQueueObserved;
 
-    // rng
     std::mt19937 rng;
 };
 

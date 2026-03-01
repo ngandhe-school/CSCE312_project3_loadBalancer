@@ -12,7 +12,10 @@ bool WebServer::isBusy() const { return busy; }
 int WebServer::getId() const { return serverId; }
 
 bool WebServer::assign(const Request& request) {
-    if (busy) return false;
+    if(busy){
+        return false;
+    }
+    
     activeRequest = request;
     remainingCycles = request.processingTime;
     busy = true;
@@ -20,7 +23,9 @@ bool WebServer::assign(const Request& request) {
 }
 
 bool WebServer::tick() {
-    if (!busy) return false;
+    if(!busy){
+        return false;
+    }
 
     remainingCycles--;
     totalBusyCycles++;
@@ -28,13 +33,15 @@ bool WebServer::tick() {
     if (remainingCycles <= 0) {
         busy = false;
         remainingCycles = 0;
-        return true; // completed
+        return true; 
     }
     return false;
 }
 
 const Request& WebServer::currentRequest() const {
-    if (!busy) throw std::runtime_error("currentRequest() called while server is idle");
+    if(!busy){
+        throw std::runtime_error("currentRequest() called while server is idle");
+    }
     return activeRequest;
 }
 

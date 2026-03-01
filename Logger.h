@@ -4,9 +4,6 @@
 #include <fstream>
 #include <string>
 
-/**
- * @brief Writes simulation logs to a file.
- */
 class Logger {
 public:
     explicit Logger(const std::string& filename);

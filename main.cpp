@@ -5,31 +5,22 @@
 #include "LoadBalancer.h"
 #include "Firewall.h"
 
-/**
- * @brief Trims leading/trailing whitespace.
- */
 static std::string trim(const std::string& text) {
     const size_t start = text.find_first_not_of(" \t\r\n");
-    if (start == std::string::npos) return "";
+    if(start == std::string::npos){
+        return "";
+    }
     const size_t end = text.find_last_not_of(" \t\r\n");
+
     return text.substr(start, end - start + 1);
 }
 
-/**
- * @brief Reads config.txt in key=value format and fills LoadBalancer::Config + Firewall ranges.
- *
- * Supported keys:
- *  initialQueueMultiplier, minTaskTime, maxTaskTime, cooldownCycles, newRequestChancePercent,
- *  lowerQueuePerServer, upperQueuePerServer, snapshotEvery, logFile,
- *  blockRange=A.B.C.D-E.F.G.H  (multiple allowed)
- */
 static LoadBalancer::Config readConfig(const std::string& path, Firewall& firewall) {
     LoadBalancer::Config config;
 
     std::ifstream in(path);
     if (!in.is_open()) {
-        std::cerr << "WARNING: Could not open config file: " << path
-                  << ". Using defaults.\n";
+        std::cerr << "WARNING: Could not open config file: " << path << ". Using defaults.\n";
         return config;
     }
 
@@ -54,7 +45,6 @@ static LoadBalancer::Config readConfig(const std::string& path, Firewall& firewa
         else if (key == "snapshotEvery") config.snapshotEvery = std::stoi(value);
         else if (key == "logFile") config.logFile = value;
         else if (key == "blockRange") {
-            // Format: "A.B.C.D-E.F.G.H"
             const size_t dash = value.find('-');
             if (dash != std::string::npos) {
                 const std::string startIp = trim(value.substr(0, dash));

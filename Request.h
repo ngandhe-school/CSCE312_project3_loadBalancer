@@ -3,15 +3,12 @@
 
 #include <string>
 
-/**
- * @brief Represents a web request entering the load balancer simulation.
- */
 struct Request {
     std::string sourceIp;
     std::string destinationIp;
-    int processingTime;      // total processing time
-    char jobType;            // 'P' (processing) or 'S' (streaming)
-    long long createdCycle;  // cycle when request was created
+    int processingTime;     
+    char jobType;           
+    long long createdCycle; 
 };
 
 #endif

@@ -5,9 +5,6 @@
 #include <vector>
 #include <cstdint>
 
-/**
- * @brief Simple firewall that blocks requests based on IP ranges.
- */
 class Firewall {
 public:
     void addBlockedRange(const std::string& startIp, const std::string& endIp);
