@@ -84,8 +84,18 @@ void LoadBalancer::maybeScale(long long currentCycle) {
     }
 
     int numServers = servers.size();
-    if (numServers <= 0) return;
     int qSize = requestQueue.size();
+
+    // Recovery path: if this balancer has queued work but zero servers, bootstrap one.
+    if (numServers == 0) {
+        if (qSize > 0) {
+            servers.emplace_back(nextServerId++);
+            scaleUps++;
+            cooldownCyclesRemaining = config.cooldownTime;
+            logEvent("[Cycle " + std::to_string(currentCycle) + "] SCALING UP. Total servers: " + std::to_string(servers.size()), YELLOW);
+        }
+        return;
+    }
 
     if (qSize > (UPPER_QUEUE_MULT * numServers)) {
         servers.emplace_back(nextServerId++);
