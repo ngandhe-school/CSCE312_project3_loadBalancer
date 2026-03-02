@@ -1,9 +1,9 @@
 CXX = g++
 CXXFLAGS = -std=c++17 -Wall -Wextra -Werror
 
-TARGET = loadbalancer
+TARGET = switch
 
-SRCS = main.cpp WebServer.cpp LoadBalancer.cpp
+SRCS = main.cpp WebServer.cpp LoadBalancer.cpp Switch.cpp
 OBJS = $(SRCS:.cpp=.o)
 
 all: $(TARGET)

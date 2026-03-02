@@ -7,12 +7,13 @@
 #include <fstream>
 #include <string>
 #include "LoadBalancer.h"
+#include "Switch.h"
 
 int main() {
     int initialServerCount = 0;
     int simulationCycles = 0;
 
-    std::cout << "Enter initial number of servers (e.g., 10): ";
+    std::cout << "Enter total initial number of servers (e.g., 10): ";
     std::cin >> initialServerCount;
 
     std::cout << "Enter number of clock cycles to run (e.g., 10000): ";
@@ -37,6 +38,8 @@ int main() {
                 if (key == "MIN_TASK_TIME") config.minTaskTime = std::stoi(value);
                 else if (key == "MAX_TASK_TIME") config.maxTaskTime = std::stoi(value);
                 else if (key == "COOLDOWN_TIME") config.cooldownTime = std::stoi(value);
+                else if (key == "INITIAL_MULTIPLIER") config.initialMultiplier = std::stoi(value);
+                else if (key == "NEW_REQUEST_CHANCE") config.newRequestChance = std::stoi(value);
                 else if (key == "BLOCKED_IP_START") config.blockedIpStart = value;
                 else if (key == "BLOCKED_IP_END") config.blockedIpEnd = value;
             }
@@ -48,9 +51,8 @@ int main() {
 
     std::cout << "\nStarting Load Balancer Simulation...\n";
     
-    LoadBalancer lb(initialServerCount, simulationCycles, config);
-    lb.run();
-
-    std::cout << "Simulation complete. Check log.txt for details.\n";
+    Switch topLevelSwitch(initialServerCount, simulationCycles, config);
+    topLevelSwitch.run();
+    
     return 0;
 }

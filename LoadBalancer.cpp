@@ -6,130 +6,55 @@
 #include "LoadBalancer.h"
 #include <iostream>
 #include <algorithm>
-#include <sstream>
 
 const std::string RESET = "\033[0m";
 const std::string GREEN = "\033[32m";
-const std::string RED = "\033[31m";
 const std::string YELLOW = "\033[33m";
 const std::string CYAN = "\033[36m";
 
-LoadBalancer::LoadBalancer(int initialServers, int simulationCycles, const Config& configValues)
-    : totalSimulationCycles(simulationCycles),
-      currentCycle(0),
+LoadBalancer::LoadBalancer(std::string typeName, int initialServers, const Config& configValues, std::ofstream* sharedLogFile)
+    : name(typeName),
       config(configValues),
+      logFile(sharedLogFile),
       nextServerId(1),
       cooldownCyclesRemaining(0),
       startingQueueSize(0),
-      totalGenerated(0),
-      totalRejected(0),
       totalCompleted(0),
       scaleUps(0),
       scaleDowns(0),
-      maxQueueObserved(0),
-      rng(std::random_device{}()) {
-    
-    logFile.open("log.txt");
+      maxQueueObserved(0) {
     
     for (int i = 0; i < initialServers; ++i) {
         servers.emplace_back(nextServerId++);
     }
-
-    // Set Firewall True Range Bounds
-    firewallStartIp = ipToUint(config.blockedIpStart);
-    firewallEndIp = ipToUint(config.blockedIpEnd);
-    if (firewallStartIp > firewallEndIp) std::swap(firewallStartIp, firewallEndIp);
-
-    logEvent("==== Load Balancer Simulation Started ====", CYAN);
 }
 
-LoadBalancer::~LoadBalancer() {
-    if (logFile.is_open()) logFile.close();
+int LoadBalancer::getServerCount() const {
+    return servers.size();
 }
 
-void LoadBalancer::logEvent(const std::string& text, const std::string& colorCode) {
-    if (logFile.is_open()) logFile << text << "\n";
-    if (!colorCode.empty()) std::cout << colorCode << text << RESET << "\n";
-    else std::cout << text << "\n";
-}
+void LoadBalancer::logEvent(const std::string& text, const std::string& colorCode) const {
+    std::cout << colorCode << "[" << name << "] " << text << RESET << "\n";
 
-uint32_t LoadBalancer::ipToUint(const std::string& ip) {
-    uint32_t a, b, c, d;
-    // Simple sscanf format to grab octets
-    if (sscanf(ip.c_str(), "%u.%u.%u.%u", &a, &b, &c, &d) != 4) return 0;
-    return (a << 24) | (b << 16) | (c << 8) | d;
-}
-
-bool LoadBalancer::isBlocked(const std::string& ip) {
-    uint32_t ipValue = ipToUint(ip);
-    return (ipValue >= firewallStartIp && ipValue <= firewallEndIp);
-}
-
-std::string LoadBalancer::createRandomIp() {
-    std::uniform_int_distribution<int> octetDist(1, 254);
-    std::uniform_int_distribution<int> evilDist(1, 10);
-    
-    // Artificially inject some blocked IPs for testing logging
-    if (evilDist(rng) == 1) {
-        return "192.168." + std::to_string(octetDist(rng)) + "." + std::to_string(octetDist(rng));
+    if (logFile && logFile->is_open()) {
+        *logFile << "[" << name << "] " << text << "\n";
     }
-
-    return std::to_string(octetDist(rng)) + "." +
-           std::to_string(octetDist(rng)) + "." +
-           std::to_string(octetDist(rng)) + "." +
-           std::to_string(octetDist(rng));
 }
 
-Request LoadBalancer::createRandomRequest() {
-    std::uniform_int_distribution<int> timeDist(config.minTaskTime, config.maxTaskTime);
-    std::uniform_int_distribution<int> typeDist(0, 1);
-
-    Request req;
-    req.sourceIp = createRandomIp();
-    req.destinationIp = createRandomIp();
-    req.processingTime = timeDist(rng);
-    req.jobType = typeDist(rng) == 0 ? 'S' : 'P';
-    req.createdCycle = currentCycle;
-    return req;
-}
-
-void LoadBalancer::generateInitialQueue() {
-    int target = servers.size() * INITIAL_MULTIPLIER;
-    for (int i = 0; i < target; ++i) {
-        Request req = createRandomRequest();
-        if (isBlocked(req.sourceIp)) {
-            totalRejected++;
-            continue;
-        }
-        requestQueue.push(req);
-        totalGenerated++;
-    }
-
-    startingQueueSize = requestQueue.size();
-    maxQueueObserved = std::max(maxQueueObserved, requestQueue.size());
-
-    logEvent("Initial servers: " + std::to_string(servers.size()));
-    logEvent("Initial queue size: " + std::to_string(startingQueueSize));
-}
-
-void LoadBalancer::maybeGenerateNewRequest() {
-    std::uniform_int_distribution<int> chanceDist(1, 100);
-    if (chanceDist(rng) > NEW_REQUEST_CHANCE) return;
-
-    Request req = createRandomRequest();
-    if (isBlocked(req.sourceIp)) {
-        totalRejected++;
-        logEvent("[Cycle " + std::to_string(currentCycle) + "] FIREWALL BLOCKED IP: " + req.sourceIp, RED);
-        return;
-    }
-
+void LoadBalancer::addRequest(const Request& req) {
     requestQueue.push(req);
-    totalGenerated++;
     maxQueueObserved = std::max(maxQueueObserved, requestQueue.size());
-    logEvent("[Cycle " + std::to_string(currentCycle) + "] NEW REQUEST added. Time: " + std::to_string(req.processingTime), GREEN);
+    logEvent("[Cycle " + std::to_string(req.createdCycle) + "] NEW REQUEST Queued. Task Time: " + std::to_string(req.processingTime));
 }
 
-void LoadBalancer::assignRequestsToIdleServers() {
+void LoadBalancer::recordStartingQueue() {
+    startingQueueSize = requestQueue.size();
+    maxQueueObserved = std::max(maxQueueObserved, startingQueueSize);
+    logEvent("Initial servers: " + std::to_string(servers.size()), CYAN);
+    logEvent("Initial queue size: " + std::to_string(startingQueueSize), CYAN);
+}
+
+void LoadBalancer::assignRequestsToIdleServers(long long currentCycle) {
     for (auto& server : servers) {
         if (requestQueue.empty()) break;
 
@@ -137,18 +62,22 @@ void LoadBalancer::assignRequestsToIdleServers() {
             Request nextReq = requestQueue.front();
             requestQueue.pop();
             server.assign(nextReq);
+            logEvent("[Cycle " + std::to_string(currentCycle) + "] ASSIGNED Request to Server ID: " + std::to_string(server.getId()));
         }
     }
 }
 
-void LoadBalancer::tickServers() {
+void LoadBalancer::tickServers(long long currentCycle) {
     for (auto& server : servers) {
         if (!server.isBusy()) continue;
-        if (server.tick()) totalCompleted++;
+        if (server.tick()) {
+            totalCompleted++;
+            logEvent("[Cycle " + std::to_string(currentCycle) + "] COMPLETED Request on Server ID: " + std::to_string(server.getId()));
+        }
     }
 }
 
-void LoadBalancer::maybeScale() {
+void LoadBalancer::maybeScale(long long currentCycle) {
     if (cooldownCyclesRemaining > 0) {
         cooldownCyclesRemaining--;
         return;
@@ -179,25 +108,18 @@ void LoadBalancer::maybeScale() {
     }
 }
 
-void LoadBalancer::logSnapshot() {
-    if (currentCycle % 500 == 0) {
+void LoadBalancer::tickCycle(long long currentCycle) {
+    assignRequestsToIdleServers(currentCycle);
+    tickServers(currentCycle);
+    maybeScale(currentCycle);
+
+    if (currentCycle % 1000 == 0) {
         logEvent("[Cycle " + std::to_string(currentCycle) + "] STATUS: Queue=" + std::to_string(requestQueue.size()) + 
                  " Servers=" + std::to_string(servers.size()), CYAN);
     }
 }
 
-void LoadBalancer::run() {
-    generateInitialQueue();
-
-    for (currentCycle = 1; currentCycle <= totalSimulationCycles; ++currentCycle) {
-        maybeGenerateNewRequest();
-        assignRequestsToIdleServers();
-        tickServers();
-        maybeScale();
-        logSnapshot();
-    }
-
-    // Calculate Active vs Inactive servers for the final rubric requirement
+void LoadBalancer::printSummary() const {
     int activeCount = 0;
     int inactiveCount = 0;
     for (const auto& server : servers) {
@@ -205,16 +127,29 @@ void LoadBalancer::run() {
         else inactiveCount++;
     }
 
-    logEvent("\n==== Final Simulation Summary ====", CYAN);
-    logEvent("Starting queue size: " + std::to_string(startingQueueSize));
-    logEvent("Ending queue size: " + std::to_string(requestQueue.size()));
-    logEvent("Task time range: " + std::to_string(config.minTaskTime) + " to " + std::to_string(config.maxTaskTime) + " cycles");
-    logEvent("Total generated: " + std::to_string(totalGenerated));
-    logEvent("Total completed: " + std::to_string(totalCompleted));
-    logEvent("Total rejected by firewall: " + std::to_string(totalRejected));
-    logEvent("Server scale ups: " + std::to_string(scaleUps));
-    logEvent("Server scale downs: " + std::to_string(scaleDowns));
-    logEvent("Active servers (busy): " + std::to_string(activeCount));
-    logEvent("Inactive servers (idle): " + std::to_string(inactiveCount));
-    logEvent("Total remaining servers: " + std::to_string(servers.size()));
+    std::cout << CYAN << "--- " << name << " Load Balancer Status ---" << RESET << "\n";
+    std::cout << "Starting queue size: " << startingQueueSize << "\n";
+    std::cout << "Ending queue size: " << requestQueue.size() << "\n";
+    std::cout << "Task time range: " << config.minTaskTime << " to " << config.maxTaskTime << " cycles\n";
+    std::cout << "Max queue observed: " << maxQueueObserved << "\n";
+    std::cout << "Total completed: " << totalCompleted << "\n";
+    std::cout << "Server scale ups: " << scaleUps << "\n";
+    std::cout << "Server scale downs: " << scaleDowns << "\n";
+    std::cout << "Active servers (busy): " << activeCount << "\n";
+    std::cout << "Inactive servers (idle): " << inactiveCount << "\n";
+    std::cout << "Total remaining servers: " << servers.size() << "\n\n";
+
+    if (logFile && logFile->is_open()) {
+        *logFile << "--- " << name << " Load Balancer Status ---\n";
+        *logFile << "Starting queue size: " << startingQueueSize << "\n";
+        *logFile << "Ending queue size: " << requestQueue.size() << "\n";
+        *logFile << "Task time range: " << config.minTaskTime << " to " << config.maxTaskTime << " cycles\n";
+        *logFile << "Max queue observed: " << maxQueueObserved << "\n";
+        *logFile << "Total completed: " << totalCompleted << "\n";
+        *logFile << "Server scale ups: " << scaleUps << "\n";
+        *logFile << "Server scale downs: " << scaleDowns << "\n";
+        *logFile << "Active servers (busy): " << activeCount << "\n";
+        *logFile << "Inactive servers (idle): " << inactiveCount << "\n";
+        *logFile << "Total remaining servers: " << servers.size() << "\n\n";
+    }
 }
