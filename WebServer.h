@@ -1,6 +1,6 @@
 /**
  * @file WebServer.h
- * @brief Defines the WebServer class, acting as a worker node to process Requests.
+ * @brief Declares the WebServer class used by the load balancer simulation.
  */
 
 #ifndef WEBSERVER_H
@@ -10,7 +10,12 @@
 
 /**
  * @class WebServer
- * @brief Represents a single server instance capable of processing one Request at a time.
+ * @brief Represents a single worker server that processes one request at a time.
+ *
+ * @details
+ * Each WebServer can hold at most one active Request. The simulation calls
+ * tick() once per clock cycle to advance processing. When the request's
+ * remaining cycles reach zero, the server becomes idle again.
  */
 class WebServer {
 public:
@@ -20,10 +25,16 @@ public:
      */
     explicit WebServer(int id);
 
-    /** @brief Checks if the server is currently processing a request. */
+    /**
+     * @brief Checks whether this server currently has an active request.
+     * @return True if busy, false if idle.
+     */
     bool isBusy() const;
-    
-    /** @brief Gets the server's unique ID. */
+
+    /**
+     * @brief Gets this server's unique identifier.
+     * @return Server ID assigned at construction.
+     */
     int getId() const;
 
     /**
@@ -39,21 +50,31 @@ public:
      */
     bool tick();
 
-    /** @brief Returns the request currently being processed. */
+    /**
+     * @brief Returns the active request currently being processed.
+     * @return Const reference to the active Request.
+     * @throws std::runtime_error if called while the server is idle.
+     */
     const Request& currentRequest() const;
 
-    /** @brief Returns the number of cycles remaining for the current request. */
+    /**
+     * @brief Gets remaining processing cycles for the active request.
+     * @return Remaining cycles; returns 0 if idle.
+     */
     int remainingTime() const;
-    
-    /** @brief Returns the total number of cycles this server has spent working. */
+
+    /**
+     * @brief Gets lifetime busy-cycle count for this server.
+     * @return Number of cycles this server has been busy.
+     */
     long long busyCycles() const;
 
 private:
-    int serverId;
-    bool busy;
-    Request activeRequest;  
-    int remainingCycles;
-    long long totalBusyCycles;
+    int serverId;            ///< Unique server ID.
+    bool busy;               ///< Busy/idle state flag.
+    Request activeRequest;   ///< Request currently assigned to this server.
+    int remainingCycles;     ///< Remaining cycles for activeRequest.
+    long long totalBusyCycles; ///< Total cycles spent in busy state.
 };
 
 #endif

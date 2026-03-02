@@ -1,6 +1,34 @@
 /**
  * @file main.cpp
- * @brief Driver program for the Load Balancer simulation.
+ * @brief Entry point for the switch-driven load balancer simulation.
+ *
+ * @mainpage Project 3: Load Balancer Simulation
+ *
+ * @section overview Overview
+ * This program simulates web request load balancing over clock cycles.
+ * A top-level Switch generates requests, applies firewall filtering, and routes
+ * jobs by type:
+ * - 'P' processing requests to the processing load balancer
+ * - 'S' streaming requests to the streaming load balancer
+ *
+ * Each load balancer maintains:
+ * - a FIFO request queue
+ * - a dynamic WebServer pool
+ * - autoscaling based on queue thresholds
+ *
+ * @section config Configuration
+ * Runtime settings are read from `config.txt` using `KEY=VALUE` lines:
+ * - MIN_TASK_TIME
+ * - MAX_TASK_TIME
+ * - COOLDOWN_TIME
+ * - INITIAL_MULTIPLIER
+ * - NEW_REQUEST_CHANCE
+ * - BLOCKED_IP_START
+ * - BLOCKED_IP_END
+ *
+ * @section output Output
+ * Simulation events and final summaries are printed to console and written to
+ * `log.txt` for submission logging requirements.
  */
 
 #include <iostream>
@@ -9,6 +37,10 @@
 #include "LoadBalancer.h"
 #include "Switch.h"
 
+/**
+ * @brief Program entry point.
+ * @return 0 on success, non-zero on invalid input.
+ */
 int main() {
     int initialServerCount = 0;
     int simulationCycles = 0;
